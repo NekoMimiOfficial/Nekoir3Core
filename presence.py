@@ -1,4 +1,5 @@
 import time
+from typing import Optional
 from pypresence.presence import Presence
 from pypresence.types import ActivityType
 
@@ -44,7 +45,7 @@ class DiscordPresence:
         self.connected = False
         self.rpc = None
 
-    def update(self, track_info: dict, playing: bool = True):
+    def update(self, track_info: dict, playing: bool = True, url: Optional[str]= None):
         """
         Updates the Discord presence with the current track information.
         
@@ -56,6 +57,8 @@ class DiscordPresence:
             print("Presence: Not connected, cannot update status.")
             return
 
+        button= [{'label': 'Listen', 'url': url}] if url else []
+
         try:
             if playing:
                 self.start_time = int(time.time())
@@ -65,6 +68,7 @@ class DiscordPresence:
                     state=f"by {track_info['artist']}",
                     large_image=track_info['cover'],
                     large_text="Nekoir3 Core",
+                    buttons= button,
 
                     start= self.start_time,
                     end= self.start_time+ int(track_info['duration']),

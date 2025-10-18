@@ -11,6 +11,7 @@ from api import CustomAPI
 from presence import DiscordPresence
 import requests
 import runpy
+import os
 
 TARGET_MODULE_NAME = 'NekoMimi'
 
@@ -28,6 +29,25 @@ if len(sys.argv) > 1 and sys.argv[1] == TARGET_MODULE_NAME:
     sys.exit(0)
 
 DISCORD_CLIENT_ID = '1429113771221061804'
+
+def download_file_requests(url, local_filename):
+    """
+    Downloads a file from a URL using the requests library.
+    """
+    try:
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+
+            with open(local_filename, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+        print(f"Successfully downloaded {url} to {local_filename}")
+
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
+    except IOError as e:
+        print(f"Error writing file: {e}")
 
 class MainWindow(QMainWindow):
     """The main application window."""
@@ -86,6 +106,7 @@ class MainWindow(QMainWindow):
         self.image_label.setMinimumSize(1, 1)
 
         self.image_url = "https://nekomimi.tilde.team/pool/05/nekoir.png"
+        self.image_uri = "https://nekomimi.tilde.team/pool/05/nekoir.png"
         self.image_data = self._download_image(self.image_url)
         self.resizeEvent = self.on_resize
 
@@ -129,9 +150,6 @@ class MainWindow(QMainWindow):
 
     def _update_image_display(self):
         """Scales and updates the QLabel's pixmap based on its current size."""
-        if not self.image_data:
-            return
-
         label_size = self.image_label.size()
         width = label_size.width()
         height = label_size.height()
@@ -139,8 +157,7 @@ class MainWindow(QMainWindow):
         if width <= 0 or height <= 0:
             return
 
-        pixmap = QPixmap()
-        pixmap.loadFromData(QByteArray(self.image_data))
+        pixmap = QPixmap(self.image_uri)
 
         if pixmap.isNull():
             self.image_label.setText("Error: Invalid image data.")
@@ -191,16 +208,31 @@ class MainWindow(QMainWindow):
 
         self.current_track_info = track_info
         track_url = self.api.get_track_url(track_info['id'])
+        self.current_track_info['url']= track_url
 
         print(f"Playing URL: {track_url}")
 
         self.image_url = track_info["cover"]
-        self.image_data = self._download_image(self.image_url)
+
+        try:
+            os.mkdir("downloads")
+        except:
+            pass
+        try:
+            os.mkdir("downloads/"+ track_info["artist"])
+        except:
+            pass
+        if not os.path.exists("downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".mp3"):
+            download_file_requests(track_url, "downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".mp3")
+        
+        if not os.path.exists("downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".jpg"):
+            download_file_requests(self.image_url, "downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".jpg")
 
         if self.image_data:
+            self.image_uri= "downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".jpg"
             self._update_image_display()
 
-        self.player_backend.play_url(track_url)
+        self.player_backend.play_url("downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".mp3")
 
     def toggle_play_pause(self):
         """Toggles the player's pause state, but for now just handles play from stopped."""
@@ -219,7 +251,7 @@ class MainWindow(QMainWindow):
         """Handles the player starting to play."""
         self.play_pause_button.setText("■ Stop") # Use 'Stop' since we only have play/stop
         if self.current_track_info:
-            self.presence.update(self.current_track_info, playing=True)
+            self.presence.update(self.current_track_info, playing=True, url= self.current_track_info['url'])
 
     def on_playback_stopped(self):
         """Handles the player stopping or reaching the end."""
