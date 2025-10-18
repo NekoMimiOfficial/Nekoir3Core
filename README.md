@@ -7,6 +7,10 @@ Install requirements and run the following
 The app may crash if the request fails... i did no error handling  
 Discord RPC works... and it's cursed :3  
 
+This app is alse able to be made into a pyinstaller package  
+This means that you can invoke the `NekoMimi` module by running the app from a terminal and appending `NekoMimi` to the argv  
+Example: `Nekoir3c.app NekoMimi`  
+
 This app is used to stream music and set discord RPC, just that  
 
 # Contributing  
