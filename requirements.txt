@@ -1,0 +1,4 @@
+NekoMimi
+PyQt6
+pypresence
+ffpyplayer
