@@ -17,7 +17,7 @@ class PlayerBackend:
     def play_url(self, url: str):
         """Loads and starts playing a new URL."""
         self.stop()
-        opts = {'vn': 1}
+        opts = {'vn': 1, 'reconnect': 1, 'reconnect_streamed': 1, 'reconnect_delay_max': 5}
 
         try:
             self._player = MediaPlayer(url, ff_opts=opts)
