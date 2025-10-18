@@ -10,6 +10,22 @@ from player_backend import PlayerBackend
 from api import CustomAPI
 from presence import DiscordPresence
 import requests
+import runpy
+
+TARGET_MODULE_NAME = 'NekoMimi'
+
+if len(sys.argv) > 1 and sys.argv[1] == TARGET_MODULE_NAME:
+    sys.argv.pop(1) 
+    
+    print(f"Executing bundled module: {TARGET_MODULE_NAME}")
+    
+    try:
+        runpy.run_module(TARGET_MODULE_NAME, run_name="__main__", alter_sys=True)
+        
+    except ModuleNotFoundError:
+        print(f"Error: Could not find bundled module '{TARGET_MODULE_NAME}'.")
+        
+    sys.exit(0)
 
 DISCORD_CLIENT_ID = '1429113771221061804'
 
