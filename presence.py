@@ -11,6 +11,7 @@ class DiscordPresence:
     def __init__(self, client_id: str):
         self.client_id = client_id
         self.rpc = None
+        self.elapsed = 0
         self.connected = False
         self.start_time = None
 
@@ -67,7 +68,7 @@ class DiscordPresence:
                     details=f"{track_info['title']}",
                     state=f"by {track_info['artist']}",
                     large_image=track_info['cover'],
-                    large_text="Nekoir3 Core",
+                    large_text="Playing",
                     buttons= button,
 
                     start= self.start_time,
@@ -79,6 +80,40 @@ class DiscordPresence:
         except Exception as e:
             print(f"Presence: Failed to update status. Error: {e}")
             self.disconnect()
+
+    def pause(self, track_info: dict):
+        print("Pausing RPC")
+        if self.start_time:
+            self.elapsed= int(time.time()) - self.start_time
+        if self.rpc:
+            self.rpc.clear()
+            self.rpc.update(
+                    activity_type= ActivityType.LISTENING,
+                    details=f"{track_info['title']}",
+                    state=f"by {track_info['artist']}",
+                    large_image=track_info['cover'],
+                    large_text="Paused",
+                )
+
+    def resume(self, track_info: dict, elapsed: int, url: str):
+        self.elapsed= int(time.time()) - elapsed
+        print("Resume RPC, new timestamp:", str(self.elapsed))
+        if self.rpc:
+            self.start_time= self.elapsed
+            button= [{'label': 'Listen', 'url': url}] if url else []
+            self.rpc.clear()
+            self.rpc.update(
+                    activity_type= ActivityType.LISTENING,
+                    details=f"{track_info['title']}",
+                    state=f"by {track_info['artist']}",
+                    large_image=track_info['cover'],
+                    large_text="Playing",
+
+                    buttons= button,
+
+                    start= self.start_time,
+                    end= self.start_time + int(track_info["duration"])
+                )
 
     def clear(self):
         """Clears the Discord presence status."""

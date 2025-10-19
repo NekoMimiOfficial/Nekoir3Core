@@ -13,6 +13,7 @@ class PlayerBackend:
 
         self.playback_started_callback = None
         self.playback_stopped_callback = None
+        self.playback_paused_callback = None
 
     def play_url(self, url: str):
         """Loads and starts playing a new URL."""
@@ -34,14 +35,30 @@ class PlayerBackend:
             print(f"Error initializing ffpyplayer: {e}")
             self._player = None
             self._state = 'stopped'
+    
+    def get_pts(self):
+        return int(self._player.get_pts())
 
+    def play_pause(self):
+        """does play pause :3"""
+        if self._player:
+            if self._state == "playing":
+                if self.playback_paused_callback:
+                    self.playback_paused_callback()
+                self._state= "paused"
+                self._player.set_pause(True)
+            elif self._state == "paused":
+                if self.playback_started_callback:
+                    self.playback_started_callback()
+                self._state= "playing"
+                self._player.set_pause(False)
 
     def stop(self):
         """Stops playback entirely and cleans up resources."""
         if self._player:
             print("Stopping ffpyplayer...")
             try:
-                self._player.close()
+                self._player.close_player()
             except Exception as e:
                 print(f"Error closing ffpyplayer: {e}")
             finally:
@@ -57,16 +74,22 @@ class PlayerBackend:
         """Monitors the player state and calls the stop callback on end."""
         while self._player:
             frame, val = self._player.get_frame()
+            time.sleep(0.5)
+            try:
+                metadata = self._player.get_metadata()
+                duration= metadata['duration'] if "duration" in metadata else None
+                current_time = self._player.get_pts()
+            except:
+                return
+            print(val, duration, current_time)
 
-            if val == 'eof':
-                print("End of file reached.")
+            if current_time is not None and duration is not None and current_time >= duration - 0.1:
                 self.stop()
                 return
-
-            if val is None and self._player is None:
+                
+            if val == 'eof':
+                self.stop()
                 return
-
-            time.sleep(0.1)
 
 
     def get_state(self) -> str:

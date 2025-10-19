@@ -1,0 +1,35 @@
+QScrollBar:vertical{
+  border: none;
+  background: #251E2E;
+  width: 6px;
+  margin: 10px 0px 10px 0px;
+}
+
+QScrollBar:horizontal{
+  border: none;
+  background: #251E2E;
+  width: 6px;
+  margin: 10px 0px 10px 0px;
+}
+
+QScrollBar::handle:vertical{
+  background: #c6a1f0;
+  min-height: 20px;
+  border-radius: 4px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+  background: #251E2E;
+}
+
+QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+  background: #251E2E;
+}
+
+QListWidget{
+  background-color: #251E2E;
+  border: none;
+  border-radius: 0px;
+  font-size: 16px;
+}
+

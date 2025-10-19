@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QLineEdit, QListWidget, QListWidgetItem, QLabel
 )
 from PyQt6.QtCore import Qt, QByteArray
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QFontDatabase, QPixmap
 
 from player_backend import PlayerBackend
 from api import CustomAPI
@@ -13,7 +13,18 @@ import requests
 import runpy
 import os
 
+from NekoMimi import utils as nm
+
 TARGET_MODULE_NAME = 'NekoMimi'
+
+def format_time(seconds: int) -> str:
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+
+    if hours > 0:
+        return f"{hours}:{minutes:02}:{secs:02}"
+    return f"{minutes:02}:{secs:02}"
 
 if len(sys.argv) > 1 and sys.argv[1] == TARGET_MODULE_NAME:
     sys.argv.pop(1) 
@@ -56,6 +67,8 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Nekoir3 Core")
         self.setGeometry(100, 100, 850, 600)
+        self.HNF= QFontDatabase.addApplicationFont("./assets/HurmitNerdFontMono-Regular.otf")
+        self.HFF= QFontDatabase.applicationFontFamilies(self.HNF)[0]
 
         self.api = CustomAPI()
         self.presence = DiscordPresence(DISCORD_CLIENT_ID)
@@ -67,16 +80,20 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
         sec_wid = QWidget()
         sec_layout = QHBoxLayout(sec_wid)
-        self.setStyleSheet("background: #362446;")
+        self.setStyleSheet(nm.read("./css/body.css")+f"font-family: {self.HFF};")
 
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_panel.setFixedWidth(300)
 
+        title= QLabel("Nekoir3 Core")
+        title.setStyleSheet(nm.read("./css/title.css"))
+
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search for music...")
         self.search_button = QPushButton("Search")
         self.search_results = QListWidget()
+        self.search_results.setStyleSheet(nm.read("./css/sidebar.css"))
 
         search_box = QHBoxLayout()
         search_box.addWidget(self.search_input)
@@ -91,13 +108,14 @@ class MainWindow(QMainWindow):
         controls_layout = QHBoxLayout(controls_widget)
         controls_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.play_pause_button = QPushButton("▶ Play")
+        self.play_pause_button = QPushButton("▶ Play  ")
         self.stop_button = QPushButton("■ Stop")
+        self.track_info = QLabel("[stopped]")
 
+        controls_layout.addWidget(self.track_info)
         controls_layout.addStretch()
         controls_layout.addWidget(self.play_pause_button)
         controls_layout.addWidget(self.stop_button)
-        controls_layout.addStretch()
 
         right_layout.addWidget(controls_widget)
 
@@ -115,12 +133,14 @@ class MainWindow(QMainWindow):
 
         sec_layout.addWidget(left_panel)
         sec_layout.addWidget(self.image_label)
+        main_layout.addWidget(title)
         main_layout.addWidget(sec_wid)
         main_layout.addWidget(right_panel)
 
         self.player_backend = PlayerBackend()
         self.player_backend.playback_started_callback = self.on_playback_started
         self.player_backend.playback_stopped_callback = self.on_playback_stopped
+        self.player_backend.playback_paused_callback = self.on_playback_paused
 
 
         self.search_button.clicked.connect(self.perform_search)
@@ -157,7 +177,11 @@ class MainWindow(QMainWindow):
         if width <= 0 or height <= 0:
             return
 
-        pixmap = QPixmap(self.image_uri)
+        if not self.image_uri.startswith("https:"):
+            pixmap = QPixmap(self.image_uri)
+        else:
+            pixmap = QPixmap()
+            pixmap.loadFromData(self.image_data)
 
         if pixmap.isNull():
             self.image_label.setText("Error: Invalid image data.")
@@ -195,7 +219,7 @@ class MainWindow(QMainWindow):
         self.search_results.clear()
 
         for track in results:
-            item_text = f"{track['title']}\n{track['artist']}"
+            item_text = f"{track['title']}\n> {track['artist']}\n"
             item = QListWidgetItem(item_text)
             item.setData(Qt.ItemDataRole.UserRole, track)
             self.search_results.addItem(item)
@@ -209,6 +233,7 @@ class MainWindow(QMainWindow):
         self.current_track_info = track_info
         track_url = self.api.get_track_url(track_info['id'])
         self.current_track_info['url']= track_url
+        duration= int(track_info['duration'])
 
         print(f"Playing URL: {track_url}")
 
@@ -233,6 +258,7 @@ class MainWindow(QMainWindow):
             self._update_image_display()
 
         self.player_backend.play_url("downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".mp3")
+        self.track_info.setText(f"[playing] | {format_time(duration)} | {track_info['title']}")
 
     def toggle_play_pause(self):
         """Toggles the player's pause state, but for now just handles play from stopped."""
@@ -240,24 +266,40 @@ class MainWindow(QMainWindow):
 
         if current_state == 'stopped' and self.search_results.count() > 0:
             self.play_selected_track(self.search_results.item(0))
+        else:
+            self.player_backend.play_pause()
+
+        if current_state == 'paused':
+            self.track_info.setText(self.track_info.text().replace("[paused]", "[playing]"))
         elif current_state == 'playing':
-            self.stop_playback()
+            self.track_info.setText(self.track_info.text().replace("[playing]", "[paused]"))
+
+        if self.player_backend.get_state() == 'playing':
+            self.presence.resume(self.current_track_info if self.current_track_info else {}, int(self.player_backend.get_pts()), self.current_track_info['url'] if self.current_track_info else "")
+        elif self.player_backend.get_state() == 'paused':
+            self.presence.pause(self.current_track_info if self.current_track_info else {})
 
     def stop_playback(self):
         """Stops playback entirely."""
+        self.track_info.setText("[stopped]")
         self.player_backend.stop()
 
     def on_playback_started(self):
         """Handles the player starting to play."""
-        self.play_pause_button.setText("■ Stop") # Use 'Stop' since we only have play/stop
+        self.play_pause_button.setText("▮▮ Pause  ") # Use 'Stop' since we only have play/stop
         if self.current_track_info:
             self.presence.update(self.current_track_info, playing=True, url= self.current_track_info['url'])
 
+    def on_playback_paused(self):
+        """Handles the player pause"""
+        self.play_pause_button.setText("▶ Play  ")
+        
+
     def on_playback_stopped(self):
         """Handles the player stopping or reaching the end."""
-        self.play_pause_button.setText("▶ Play")
+        self.play_pause_button.setText("▶ Play  ")
+        self.track_info.setText("[stopped]")
         self.presence.clear()
-        self.current_track_info = None
 
     def closeEvent(self, event):
         """Cleanly shuts down resources when the application is closed."""
