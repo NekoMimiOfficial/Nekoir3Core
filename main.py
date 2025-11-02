@@ -13,6 +13,8 @@ import requests
 import runpy
 import os
 
+from pydub import AudioSegment
+
 from NekoMimi import utils as nm
 
 TARGET_MODULE_NAME = 'NekoMimi'
@@ -211,29 +213,58 @@ class MainWindow(QMainWindow):
 
     def perform_search(self):
         """Executes a search and populates the results list."""
+        results= []
         query = self.search_input.text()
         if not query:
             return
 
-        results = self.api.search(query)
-        self.search_results.clear()
+        if query== "?local":
+            artists= os.listdir("downloads/")
+            for aist in artists:
+                songs= os.listdir("downloads/"+ aist)
+                for song in songs:
+                    if song.endswith(".mp3"):
+                        results.append({'title': song[:-4], 'artist': aist})
 
-        for track in results:
-            item_text = f"{track['title']}\n> {track['artist']}\n"
-            item = QListWidgetItem(item_text)
-            item.setData(Qt.ItemDataRole.UserRole, track)
-            self.search_results.addItem(item)
+            self.search_results.clear()
+            for track in results:
+                item_text = f"{track['title']}\n> {track['artist']}\n"
+                item = QListWidgetItem(item_text)
+                track["id"]= "0"
+                track["cover"]= ""
+                track["duration"]= 0
+                item.setData(Qt.ItemDataRole.UserRole, track)
+                self.search_results.addItem(item)
+
+        else:
+
+            results = self.api.search(query)
+            self.search_results.clear()
+
+            for track in results:
+                item_text = f"{track['title']}\n> {track['artist']}\n"
+                item = QListWidgetItem(item_text)
+                item.setData(Qt.ItemDataRole.UserRole, track)
+                self.search_results.addItem(item)
 
     def play_selected_track(self, item: QListWidgetItem):
         """Plays the track associated with the selected list item."""
         track_info = item.data(Qt.ItemDataRole.UserRole)
         if not track_info:
             return
+        duration= int(track_info['duration'])
 
         self.current_track_info = track_info
-        track_url = self.api.get_track_url(track_info['id'])
+        dl= True
+        print(track_info)
+        if os.path.exists("downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".mp3"):
+            dl= False
+        track_url= ""
+        if dl:
+            track_url = self.api.get_track_url(track_info['id'])
+            if track_url== "":
+                return
         self.current_track_info['url']= track_url
-        duration= int(track_info['duration'])
 
         print(f"Playing URL: {track_url}")
 
@@ -249,6 +280,12 @@ class MainWindow(QMainWindow):
             pass
         if not os.path.exists("downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".mp3"):
             download_file_requests(track_url, "downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".mp3")
+        else:
+            if track_info["cover"]== "":
+                audio= AudioSegment.from_file("downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".mp3")
+                duration= int(audio.duration_seconds)
+                self.current_track_info["duration"]= duration
+                track_info["cover"]= "http://nekomimi.tilde.team/pool/05/missingno.png"
         
         if not os.path.exists("downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".jpg"):
             download_file_requests(self.image_url, "downloads/"+ track_info["artist"]+ "/"+ track_info["title"]+ ".jpg")
@@ -275,7 +312,7 @@ class MainWindow(QMainWindow):
             self.track_info.setText(self.track_info.text().replace("[playing]", "[paused]"))
 
         if self.player_backend.get_state() == 'playing':
-            self.presence.resume(self.current_track_info if self.current_track_info else {}, int(self.player_backend.get_pts()), self.current_track_info['url'] if self.current_track_info else "")
+            self.presence.resume(self.current_track_info if self.current_track_info else {}, int(self.player_backend.get_pts()))
         elif self.player_backend.get_state() == 'paused':
             self.presence.pause(self.current_track_info if self.current_track_info else {})
 
@@ -288,7 +325,7 @@ class MainWindow(QMainWindow):
         """Handles the player starting to play."""
         self.play_pause_button.setText("▮▮ Pause  ") # Use 'Stop' since we only have play/stop
         if self.current_track_info:
-            self.presence.update(self.current_track_info, playing=True, url= self.current_track_info['url'])
+            self.presence.update(self.current_track_info, playing=True)
 
     def on_playback_paused(self):
         """Handles the player pause"""

@@ -46,7 +46,7 @@ class DiscordPresence:
         self.connected = False
         self.rpc = None
 
-    def update(self, track_info: dict, playing: bool = True, url: Optional[str]= None):
+    def update(self, track_info: dict, playing: bool = True):
         """
         Updates the Discord presence with the current track information.
         
@@ -58,7 +58,7 @@ class DiscordPresence:
             print("Presence: Not connected, cannot update status.")
             return
 
-        button= [{'label': 'Listen', 'url': url}] if url else []
+        button= [{'label': 'GitHub', 'url': "https://github.com/NekoMimiOfficial/Nekoir3Core"}]
 
         try:
             if playing:
@@ -68,6 +68,7 @@ class DiscordPresence:
                     details=f"{track_info['title']}",
                     state=f"by {track_info['artist']}",
                     large_image=track_info['cover'],
+                    small_image="https://nekomimi.tilde.team/pool/05/nekoir.png",
                     large_text="Playing",
                     buttons= button,
 
@@ -87,26 +88,30 @@ class DiscordPresence:
             self.elapsed= int(time.time()) - self.start_time
         if self.rpc:
             self.rpc.clear()
+            button= [{'label': 'GitHub', 'url': "https://github.com/NekoMimiOfficial/Nekoir3Core"}]
             self.rpc.update(
                     activity_type= ActivityType.LISTENING,
                     details=f"{track_info['title']}",
                     state=f"by {track_info['artist']}",
                     large_image=track_info['cover'],
+                    small_image="https://nekomimi.tilde.team/pool/05/nekoir.png",
+                    buttons= button,
                     large_text="Paused",
                 )
 
-    def resume(self, track_info: dict, elapsed: int, url: str):
+    def resume(self, track_info: dict, elapsed: int):
         self.elapsed= int(time.time()) - elapsed
         print("Resume RPC, new timestamp:", str(self.elapsed))
         if self.rpc:
             self.start_time= self.elapsed
-            button= [{'label': 'Listen', 'url': url}] if url else []
+            button= [{'label': 'GitHub', 'url': "https://github.com/NekoMimiOfficial/Nekoir3Core"}]
             self.rpc.clear()
             self.rpc.update(
                     activity_type= ActivityType.LISTENING,
                     details=f"{track_info['title']}",
                     state=f"by {track_info['artist']}",
                     large_image=track_info['cover'],
+                    small_image="https://nekomimi.tilde.team/pool/05/nekoir.png",
                     large_text="Playing",
 
                     buttons= button,

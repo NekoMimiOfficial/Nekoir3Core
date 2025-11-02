@@ -47,10 +47,13 @@ class CustomAPI:
 
     def search(self, query: str):
         print(f"API: Searching for '{query}'...")
-        req= requests.get(url= api+ "/search/", params= {'s': query})
+        try:
+            req= requests.get(url= api+ "/search/", params= {'s': query})
+        except:
+            return []
         jsonObj= req.json()
         if not "items" in jsonObj:
-            return False
+            return []
         items= jsonObj["items"]
         res= []
         if len(items) < 1:
@@ -61,12 +64,23 @@ class CustomAPI:
             res.append(shot)
         return res
 
-    def get_track_url(self, track_id: str):
+    def get_track_url(self, track_id: str, quality: str= "LOW", fib= True):
         print(f"API: Getting URL for track_id '{track_id}'...")
-        getUrlPlayable= requests.get(url= api+ "/track/", params= {'id': track_id, 'quality': 'LOW'})
+        getUrlPlayable= requests.get(url= api+ "/track/", params= {'id': track_id, 'quality': quality})
         gson= getUrlPlayable.json()
-        if not len(gson) > 0:
+        if "error" in gson:
+            print('quality not available:', quality)
+            if fib:
+                get_val= self.get_track_url(track_id, "HIGH", False)
+                if get_val== "":
+                    get_val= self.get_track_url(track_id, "LOSSLESS", False)
+                return get_val
             return ""
-        print(gson[-1]["OriginalTrackUrl"])
-        return gson[-1]["OriginalTrackUrl"]
+        key= 1 if len(gson) == 1 else -1
+        if len(gson) < 1:
+            return ""
+        if not gson or not "OriginalTrackUrl" in gson[key]:
+            return ""
+        print(gson[key]["OriginalTrackUrl"])
+        return gson[key]["OriginalTrackUrl"]
 
